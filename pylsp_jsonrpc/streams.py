@@ -2,7 +2,6 @@
 # Copyright 2021- Python Language Server Contributors.
 
 import logging
-import threading
 
 try:
     import ujson as json
@@ -82,30 +81,27 @@ class JsonRpcStreamReader:
 class JsonRpcStreamWriter:
     def __init__(self, wfile, **json_dumps_args):
         self._wfile = wfile
-        self._wfile_lock = threading.Lock()
         self._json_dumps_args = json_dumps_args
 
     def close(self):
-        with self._wfile_lock:
-            self._wfile.close()
+        self._wfile.close()
 
     def write(self, message):
-        with self._wfile_lock:
-            if self._wfile.closed:
-                return
-            try:
-                body = json.dumps(message, **self._json_dumps_args)
+        if self._wfile.closed:
+            return
+        try:
+            body = json.dumps(message, **self._json_dumps_args)
 
-                # Ensure we get the byte length, not the character length
-                content_length = len(body) if isinstance(body, bytes) else len(body.encode('utf-8'))
+            # Ensure we get the byte length, not the character length
+            content_length = len(body) if isinstance(body, bytes) else len(body.encode('utf-8'))
 
-                response = (
-                    f"Content-Length: {content_length}\r\n"
-                    f"Content-Type: application/vscode-jsonrpc; charset=utf8\r\n\r\n"
-                    f"{body}"
-                )
+            response = (
+                f"Content-Length: {content_length}\r\n"
+                f"Content-Type: application/vscode-jsonrpc; charset=utf8\r\n\r\n"
+                f"{body}"
+            )
 
-                self._wfile.write(response.encode('utf-8'))
-                self._wfile.flush()
-            except Exception:  # pylint: disable=broad-except
-                log.exception("Failed to write message to output file %s", message)
+            self._wfile.write(response.encode('utf-8'))
+            self._wfile.flush()
+        except Exception:  # pylint: disable=broad-except
+            log.exception("Failed to write message to output file %s", message)
